@@ -3,7 +3,9 @@ This Repository contains the epic code for:
 
 vsi3d_asl
 vsi spiral sequence with fast spin echo spiral readout
-
+There are two versions: 
+	vsiasl3d03 is the FLASH readout, 
+	vsiasl3d05 is the fast spin echo readout 
 
 pcasl3d
 PCASL spiral sequence with FLASH stack of spirals readout
