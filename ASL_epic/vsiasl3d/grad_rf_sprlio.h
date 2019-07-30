@@ -53,7 +53,7 @@ RF_PULSE rfpulse[MAX_RFPULSE] = {
      0.1753,              // dtycyc 
      0.1335,              // maxpw 
      502,                // num 
-     0.2227,         // maxb1 
+     0.147,         // maxb1 
      0.0226221,       // max_int_b1_sq 
      0.0868372,        // max_rms_b1 
      180,             // nom_fa 
@@ -77,7 +77,8 @@ RF_PULSE rfpulse[MAX_RFPULSE] = {
      0.1753,              // dtycyc 
      0.1335,              // maxpw 
      502,                // num 
-     0.147,         // maxb1 ( this is the max for the unused ref dummy pulse) 
+     //0.147,         // maxb1 ( this is the max for the unused ref dummy pulse) 
+     0.200,         // maxb1 ( this is the max for the unused ref dummy pulse) 
      0.0226221,       // max_int_b1_sq 
      0.0868372,        // max_rms_b1 
      180,             // nom_fa 

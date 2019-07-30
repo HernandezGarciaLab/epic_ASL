@@ -364,15 +364,21 @@ int 	M0frames = 2;  /* number of images withoug labeling (at the begining) */
 int	isOdd = 0;
 
 /* stuff for peak B1 calculations */
-double	vsi_RFmax = 140 ; /* mGauss. Peak B1 of the pulse train 
-				for a 180 deg, 0.4 ms  hard pulse 
-				B1max should be 292.50 mG*/ 
-double 	rf1_RFmax = 147;   /* the excitation pulse is a hanning windowed 7 lobe sinc
-				for 5 ms: should be B1max = 375.16 mG for a 180 deg flip*/ 
-/* this pulse is r13d.rho :   still need to calculate this number, so this is likely wrong !!  */
-
-double	dummy_RFmax = 147;    /* mGauss.  Peak B1 of reference pulse rfdummy in rf_grad_sprilo.h
+double	vsi_RFmax = 120 ; /* mGauss. Peak B1 of the pulse train 
+				for a 180 deg, 1 ms  hard pulse 
+				B1max should be 117 mG*/ 
+double 	rf1_RFmax = 147 ;   /* the excitation pulse is a hanning windowed 7 lobe sinc
+				for 5 ms: should be B1max = 375.16 mG for a 180 deg flip. 
+				
+				this is what's used in prescan: 
+				Notes from grepping in the sar_pm.h file:
+				sar_pm.h:#define MAX_B1_SINC1_90 0.0732
+				sar_pm.h:#define MAX_B1_SINC3_90 0.221
+				sar_pm.h:#define MAX_B1_SINC1_180 0.1464
+				*/
+double	dummy_RFmax = 200;    /* mGauss.  Peak B1 of reference pulse rfdummy in rf_grad_sprilo.h
 				this is the largest pulse, and therefore the 1.0*/
+int 	dummyRefCal=0;
 
 /*LHG 10.2015 */
 int	vsi_train_len = 250;  /* number of points in the pulse.  
@@ -1262,9 +1268,14 @@ so don't change the duration of pw_rf1 without adjusting this calculation ...*/
 	a_rf1 = opflip *1.3125/180;
 	ia_rf1 = a_rf1 * max_pg_iamp;
 	*/
+	/*  calibrate relative to the dummy pulse in the grad_rf file */
+
+	if (dummyRefCal==0) dummy_RFmax=rf1_RFmax;	
+
 	a_rf1 = opflip/180 * rf1_RFmax / dummy_RFmax;
 	a_vsitag1 = vsi_RFmax / dummy_RFmax;
 	a_vsictl1 = vsi_RFmax / dummy_RFmax;
+
 	ia_rf1 = a_rf1 * max_pg_iamp;
 	ia_vsitag1 = a_vsitag1 * max_pg_iamp;
 	ia_vsictl1 = a_vsictl1 * max_pg_iamp;
@@ -1281,7 +1292,7 @@ so don't change the duration of pw_rf1 without adjusting this calculation ...*/
 	pw_rf0 = pwrf0;
 	a_rf0 = arf0;		
 	/*LHG 11/155555/2018 */
-	a_rf0 = 0.58;
+	a_rf0 = 0.28;
 
 
 
