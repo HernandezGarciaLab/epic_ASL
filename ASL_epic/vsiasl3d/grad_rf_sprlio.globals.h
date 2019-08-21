@@ -29,6 +29,7 @@
 #define MAX_GRADY 20
 #define MAX_GRADZ 20
 
+#define RF1_SLOT 0
 #define RF_FREE1 1
 
 #define GX_FREE 0

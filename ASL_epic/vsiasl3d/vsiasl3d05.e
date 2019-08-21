@@ -367,9 +367,7 @@ int	isOdd = 0;
 double	vsi_RFmax = 120 ; /* mGauss. Peak B1 of the pulse train 
 				for a 180 deg, 1 ms  hard pulse 
 				B1max should be 117 mG*/ 
-double 	rf1_RFmax = 147 ;   /* the excitation pulse is a hanning windowed 7 lobe sinc
-				for 5 ms: should be B1max = 375.16 mG for a 180 deg flip. 
-				
+double 	my_maxB1Seq = 0 ;   /*
 				this is what's used in prescan: 
 				Notes from grepping in the sar_pm.h file:
 				sar_pm.h:#define MAX_B1_SINC1_90 0.0732
@@ -890,6 +888,7 @@ int cveval()
 		epic_error(use_ermes,supfailfmt,EM_PSD_SUPPORT_FAILURE,EE_ARGS(1),STRING_ARG, "findMaxB1Seq");
 		return FAILURE;
 	}
+	my_maxB1Seq = 1000 * maxB1Seq;
 
 	/*---------------------------------------------------------*/
 	/* LHG 11/22/2010 set up the slab select trapezoid stuff here for 3D*/
@@ -1240,41 +1239,10 @@ pw_rf1/2 + opte + pw_gx + daqdel + mapdel + pw_gzspoil +
 #include "predownload.in"
 
 	/* set up RF pulse  */
-	/* a_rf1 = cyc_rf1*(6400us/pw_rf1)*opflip/360; */
-	/* 
-	   LHG 11/29/12        Determining the amplitude of the pcasl pulse 
-	   if the prescan calibration was done with rf1 (rf3d.rho -the time shifted 9 cycle sinc)
-	   then a 90 degree flip  wass obtained when the  amplitude of rf1 == 0.9.
 
-	   s1 =loadrho('rf3d.rho'); 
-	   s1=s1/max(s1);
-	   area_rf3d = sum(abs(s1))*5.0/length(s1)
-
-	   % Area of the actual prescan pulse:  a Hanning windowed sinc
-	   % when a_rf2mps=1, that means you get a 180
-
-	   t=linspace(-1600,1600,3200)';
-	   s1=sinc(t/800).*hanning(3200);
-	   plot(s1)
-	   area_sinc=sum(abs(s1(:))) * 3.2 / length(s1);
-
-	   rfscale180 = area_sinc/area_rf3d
-	   ====>  1.3125
-
-EMPIRICALLY: we know that for this pulse, if pw_rf1=5ms, then a_rf1=0.9 gives you a 90 
-so don't change the duration of pw_rf1 without adjusting this calculation ...*/
-
-	/*
-	a_rf1 = opflip *1.3125/180;
-	ia_rf1 = a_rf1 * max_pg_iamp;
-	*/
-	/*  calibrate relative to the dummy pulse in the grad_rf file */
-
-	if (dummyRefCal==0) dummy_RFmax=rf1_RFmax;	
-
-	a_rf1 = opflip/180 * rf1_RFmax / dummy_RFmax;
-	a_vsitag1 = vsi_RFmax / dummy_RFmax;
-	a_vsictl1 = vsi_RFmax / dummy_RFmax;
+	a_rf1 = opflip/180 ;
+	a_vsitag1 = vsi_RFmax / my_maxB1Seq;
+	a_vsictl1 = vsi_RFmax / my_maxB1Seq;
 
 	ia_rf1 = a_rf1 * max_pg_iamp;
 	ia_vsitag1 = a_vsitag1 * max_pg_iamp;
@@ -1292,7 +1260,7 @@ so don't change the duration of pw_rf1 without adjusting this calculation ...*/
 	pw_rf0 = pwrf0;
 	a_rf0 = arf0;		
 	/*LHG 11/155555/2018 */
-	a_rf0 = 0.28;
+	a_rf0 = 0.14;
 
 
 
@@ -1807,16 +1775,18 @@ STATUS pulsegen(void)
 	fprintf(stderr, "\n...readout_core done. \n" );
 
 	/* dummy core to calibrate RF pulses */
+
 	fprintf(stderr, "\n pulsegen: generating RFDUMMY pulse with SLICESELZ ... ");
 	SLICESELZ(rfdummy, 
 		RUP_GRD( psd_rf_wait + tlead),
-		pwrf1, 
+		6400, 
 		5.0, 
 		180,
 		cycrf1,
 		, loggrd);
 	fprintf(stderr, " ... done.");
-	SEQLENGTH(dummycore, 50ms, dummrycore);
+	SEQLENGTH(dummycore, 50ms, dummycore);
+
 
 	/*  pass packet sequence (pass).  */
 	PASSPACK(endpass, 49ms);
@@ -1854,7 +1824,7 @@ STATUS pulsegen(void)
 	INTWAVE(RHO,
 			vsitag1,
 			RUP_GRD(psd_rf_wait),
-			vsi_RFmax / dummy_RFmax,
+			vsi_RFmax / my_maxB1Seq,
 			vsi_train_len,
 			vsi_train_len*4,
 			vsi_pulse_mag,  
@@ -1903,7 +1873,7 @@ STATUS pulsegen(void)
         INTWAVE(RHO,
                         vsictl1,
                         RUP_GRD(psd_rf_wait)  ,
-			vsi_RFmax / dummy_RFmax,
+			vsi_RFmax / my_maxB1Seq,
                         vsi_train_len,
 			vsi_train_len*4,
                         vsi_pulse_mag,
@@ -2261,6 +2231,8 @@ STATUS scancore()
         printf("\n AST VARIABLES: ");
         printf("\n Gradient max amplitude (a_gztag1):   %f", a_gztag1);
         printf("\n Gradient Duration  (pw_gztag1):  %d", pw_gztag1);
+        printf("\n-------------------\n ");
+        printf("\n my_maxB1Seq :  %f", my_maxB1Seq);
         printf("\n-------------------\n ");
         fflush(0);
         /* ---------------------------------------------------------------*/
