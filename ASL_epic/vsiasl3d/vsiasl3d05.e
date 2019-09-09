@@ -272,6 +272,8 @@ float rtimescale = 2.1 with {0.1,10.0,1,VIS, "grad risetime scale relative to cf
 int nramp = RES_GRAMP with {0,4096,1,VIS, "spiral gradient ramp res",};
 float agxpre = 0.;      /* calculated x dephasing amplitude for spiral in-out */
 float agypre = 0.;      /* calculated y dephasing amplitude for spiral in-out */
+float areax = 0;
+float areay = 0;
 float prefudge = 1.004 with {0.0,2.0,1,VIS, "prephaser fudge fac ",};
 int pwgpre = 1ms;       /* calculated dephasing width for spiral in-out */
 int tadmax;     /* maximum readout duration  */
@@ -367,6 +369,7 @@ int	isOdd = 0;
 double	vsi_RFmax = 120 ; /* mGauss. Peak B1 of the pulse train 
 				for a 180 deg, 1 ms  hard pulse 
 				B1max should be 117 mG*/ 
+double vsi_RFmax_calstep = 10;
 double 	my_maxB1Seq = 0 ;   /*
 				this is what's used in prescan: 
 				Notes from grepping in the sar_pm.h file:
@@ -421,7 +424,7 @@ float   slab_fraction=0.95 with {0,10, , VIS, "fraction of the nominal z FOV wit
 
 float	se_slab_fraction = 0.95 with {0,10, , VIS, "fraction of the nominal z FOV excited by 180 degree pulse"};
 				/*  the 90 can be rotated and used to limit the FOV */
-int	doRotated90 = 1 with {0, 3, , VIS, "Forces the 90 degree pulse to the : 1=X axis, 2=Y axis, 3=Z axis "};
+int	doRotated90 = 0 with {0, 3, , VIS, "Forces the 90 degree pulse to the : 1=X axis, 2=Y axis, 3=Z axis "};
 float 	yfov = 10.0;	/* LHG 12.22.18: this sequence allows rotation of the 90 degree pulse independently of the 180.  i
 			yfov determines the slab width of the 90 (cm) */
 float	delta_y = 0.0 with {-100, 100, , VIS, "if the 90 rf is rotated to the Y axis, use this to shift it along the Y axs "};
@@ -630,6 +633,7 @@ int cveval()
 	{
 		pifanub = 0; /* turn off flip angle buttons */
 	}
+	flip_rf2 = 180;
 
 	/* label TE buttons */
 	pite1nub = 63; /* apparently a bit mask */
@@ -888,7 +892,7 @@ int cveval()
 		epic_error(use_ermes,supfailfmt,EM_PSD_SUPPORT_FAILURE,EE_ARGS(1),STRING_ARG, "findMaxB1Seq");
 		return FAILURE;
 	}
-	my_maxB1Seq = 1000 * maxB1Seq;
+	my_maxB1Seq = 1000 * maxB1Seq; // convert from Gauss to mGauss
 
 	/*---------------------------------------------------------*/
 	/* LHG 11/22/2010 set up the slab select trapezoid stuff here for 3D*/
@@ -1018,7 +1022,7 @@ int cveval()
 
 	/*set up times for the butterfly gradient spoilers  */
 
-	a_gz180crush1 = 3.0;
+	a_gz180crush1 = 0.5;
 	a_gz180crush2 = a_gz180crush1;
 
 	pw_gz180crush1 = 200;
@@ -1241,10 +1245,13 @@ pw_rf1/2 + opte + pw_gx + daqdel + mapdel + pw_gzspoil +
 	/* set up RF pulse  */
 
 	a_rf1 = opflip/180 ;
+	a_rf2 = flip_rf2/180 ;
 	a_vsitag1 = vsi_RFmax / my_maxB1Seq;
 	a_vsictl1 = vsi_RFmax / my_maxB1Seq;
 
 	ia_rf1 = a_rf1 * max_pg_iamp;
+	ia_rf2 = a_rf2 * max_pg_iamp;
+
 	ia_vsitag1 = a_vsitag1 * max_pg_iamp;
 	ia_vsictl1 = a_vsictl1 * max_pg_iamp;
 
@@ -1734,12 +1741,12 @@ STATUS pulsegen(void)
 			0,loggrd);
 	fprintf(stderr, "...done ");
 
-	fprintf(stderr, "\npulsegen: generating spiral rewinders ... ");
+	fprintf(stderr, "\npulsegen: generating spiral rewinders with agxpre = %f... ", agxpre);
 	SINUSOID(XGRAD, 
 			gxpre, 
 			RUP_GRD(pend(&gx, "gx",0) ),
 			pwgpre, 
-			prefudge*agxpre, 
+			-prefudge*agxpre, 
 			0, 0., 
 			0.5, 
 			0., loggrd);
@@ -1747,12 +1754,13 @@ STATUS pulsegen(void)
 			gypre, 
 			RUP_GRD(pend(&gx, "gx",0) ),
 			pwgpre, 
-			prefudge*agypre, 
+			-prefudge*agypre, 
 			0, 
 			0., 
 			0.5, 
 			0., loggrd);
 	fprintf(stderr, "... done. " );
+	printf("\npwgpre = %d, agxpre = %d, agypre = %d, areax = %d, areay = %d\n", pwgpre,agxpre,agypre,areax,areax);
 
 
 	/* fprintf(stderr, "\npw_gzphase=%d , pw_gzphasea = %d", pw_gzphase1, pw_gzphase1a);  */
@@ -1781,7 +1789,7 @@ STATUS pulsegen(void)
 		RUP_GRD( psd_rf_wait + tlead),
 		6400, 
 		5.0, 
-		180,
+		10,
 		cycrf1,
 		, loggrd);
 	fprintf(stderr, " ... done.");
@@ -2226,6 +2234,7 @@ STATUS scancore()
 	setperiod(astseqtime, &nothingcore, 0);
 */
 	printf("\ncalculated  a_rf1= %f , opflip= %f: , ia_rf1=  %d", a_rf1, opflip, ia_rf1);
+	printf("\ncalculated  a_rf2= %f , flip_rf2= %f: , ia_rf2=  %d", a_rf2, flip_rf2, ia_rf2);
         
         printf("\n TARDIS_FREQ_RES: %d", TARDIS_FREQ_RES);
         printf("\n AST VARIABLES: ");
@@ -2524,11 +2533,17 @@ STATUS scancore()
 	counter = 0;
 	isOdd = 0;
 
-	/* LHG : 9.27.16 : we don't want the field map when we're adjusting the phase of pcasl pulses*/ 
 	if (multiFlipFlag) 
 	{
-		fprintf(stderr,"\nVelSel RF calibration  Mode = %f", a_vsitag1);
+		vsi_RFmax = 0;
+		a_vsitag1 = vsi_RFmax / my_maxB1Seq;
+		a_vsictl1 = vsi_RFmax / my_maxB1Seq;
+		ia_vsitag1 = a_vsitag1 * max_pg_iamp;
+		ia_vsictl1 = a_vsictl1 * max_pg_iamp;
+
+		fprintf(stderr,"\nVelSel RF calibration  Mode = %f", vsi_RFmax);
 		domap=0;
+		/* LHG : 9.27.16 : we don't want the field map when we're adjusting the phase of pcasl pulses*/ 
 	}
 	fprintf(stderr,"\ndomap = %d", domap);
 	fprintf(stderr,"\nM0frames = %d", M0frames);
@@ -2561,12 +2576,18 @@ STATUS scancore()
 		if( ifr>1 || domap==0)
 			isLabel = !(isLabel);
 
-		/* calibration of the flip angles is done by starting at max and reducing the RF */
-		if (multiFlipFlag && isLabel && (ifr > M0frames) ) 
+		/* calibration of the flip angles is done by incrementing the RF for each pair */
+		if (multiFlipFlag && isLabel  ) 
 		{
-			ia_vsitag1 -= 2000;
-			ia_vsictl1 -= 2000;
-			fprintf(stderr,"\nVelSel RF calibration  Mode = %d", ia_vsitag1);
+			fprintf(stderr,"\n\nVelSel RF calibration  Mode . Frame = %d , vsi_RFmax = %f\n", ifr, vsi_RFmax );
+			if (ifr > M0frames)
+			{
+				vsi_RFmax += vsi_RFmax_calstep;		
+				a_vsitag1 = vsi_RFmax / my_maxB1Seq;
+				a_vsictl1 = vsi_RFmax / my_maxB1Seq;
+				ia_vsitag1 = a_vsitag1 * max_pg_iamp;
+				ia_vsictl1 = a_vsictl1 * max_pg_iamp;
+			}
 		}
 
 		for (iv = 0; iv < nl; iv++)  {
@@ -2586,7 +2607,7 @@ STATUS scancore()
 			kzcount=0;
 
 			if (ifr < M0frames ) 
-				fprintf(stderr,"collecting M0 images and the GRAPPA-Z cal data at the odd frames: ifr=%d isOdd=%d", ifr, isOdd); 
+				fprintf(stderr,"\ncollecting M0 images (and GRAPPA-Z cal data at the odd frames): ifr=%d isOdd=%d", ifr, isOdd); 
 
 			if (doRotated90){
 				/*scalerotmats(rotmatx90, &loggrd, &phygrd, 1, 0);*/
@@ -2963,9 +2984,10 @@ int doleaf(int leafn, int framen, int slicen, int* trig, int* bangn, int dabop, 
 
 	/* set the phase of the xmitter and recvr according to precalculated table */
 	/* alternate between 180y and -180y */
-	phase = (int) ((FS_PI / 2.0)*pow(-1.0, kzcount));
+	/*phase = (int) ((FS_PI / 2.0)*pow(-1.0, kzcount));*/
+	phase = (int) FS_PI/2; 
 	setiphase(phase, &rf2, 0);
-	setiphase(phase, &rf0, 0);
+	/*setiphase(phase, &rf0, 0);*/
 
 	/* set up receiver phase to account for shift in the z-direction */
 	phase += slcphastab[slicen];
