@@ -386,11 +386,11 @@ int	vsi_train_len = 250;  /* number of points in the pulse.
 				Note that the external files are named according to the number of points */
 int 	Npoints;	   /* the number of points that were read from the RF pulse file.  Should match vsi_train_len */
 double 	vsi_velocity = 0;   /* velocity of the spins to target for inversion */
-int	vsi_timegap = 20000;   /* gap between VSI pulses if we are doing mulitple pulsees */
+int	vsi_timegap = 1150000;   /* gap between VSI pulses if we are doing mulitple pulsees */
 
 /* arterial suppression by BIR pulses */
 double 	BIR_Gmax = 1.0; /* default gradient max aplitude in VSI pulse train */
-int	BIR_len = 7000;  /* number of points in the iArterial suppression BIR8 pulse. */ 
+int	BIR_len = 9000;  /* number of points in the iArterial suppression BIR8 pulse. */ 
 
 int  	multiFlipFlag = 0;  /* LHG 10.9.14 - Flag for VSI flip angle optimization  */  
 int  	multiphsFlag = 0;  /* LHG 10.3.12 - Flag for phase correction optimization mode */  
@@ -850,7 +850,7 @@ int cveval()
 	cvmin(opuser27,0);
 	cvmax(opuser27, 3);
 	cvdef(opuser27,1);
-	opuser27 = 1;
+	opuser27 = 0;
 	doRotated90 = opuser27;	
 
 
@@ -871,6 +871,11 @@ int cveval()
 	/* LHG 11.7.14:   now includes a gap between five VSI bursts */
 	astseqtime = pw_vsitag1 + mytpre;
 	t_tag = vsi_Ncycles*(vsi_timegap + astseqtime );
+	/* JG 9.5.2019: modify t_tag to allow correct timing and shorter TR with multiple VSI pulses */
+	/* remove the first vsi_gap */
+	/* t_tag = vsi_Ncycles*(vsi_timegap + astseqtime ); */
+	t_tag = vsi_Ncycles*(vsi_timegap + astseqtime ) - vsi_timegap;
+
 	
 
 	/* ************************************************
@@ -908,7 +913,7 @@ int cveval()
 	zfov = (double)opslquant*opslthick/10;
 	a_gzrf1 =  rf1_bw / (slab_fraction*zfov*GAMMA_H1/(2*3.14159)) ;
 	*/
-	if(doZgrappa) slab_fraction = 0.75;
+	if(doZgrappa) slab_fraction = 0.85;
 
 	pw_gzrf1ra = myramptime;
 	pw_gzrf1rd = myramptime;
@@ -1027,19 +1032,19 @@ int cveval()
 
 	pw_gz180crush1 = 200;
 	pw_gz180crush2 = pw_gz180crush1;
-	
+
 
 	pw_gz180crush1a = myramptime;
 	pw_gz180crush2a = pw_gz180crush1a;
-	
+
 
 	pw_gz180crush1d = myramptime;
 	pw_gz180crush2d = pw_gz180crush1d;
 
-	
+
 	/*---------------------------*/
 	/* LHG 6.29.12 - replace their tmin calculation and calculation of psdseqtime:
-	 old: 
+	 old:
 	 tmin = RUP_GRD(tlead +pw_rf0 + pw_gz0 + 2*pw_gz0a + pw_gzrf1a +
 	 pw_rf1/2 + opte + pw_gx + daqdel + mapdel + pw_gzspoil +
 	 2*pw_gzspoila);
@@ -1057,28 +1062,28 @@ int cveval()
 	/* if (doBS)  t_delay = t_delay - BStime;  LHG 10/4/16 reomivng this */
 
 	astseqtime2 = t_tag + t_delay;  /*duration of tagging + postabeling delay */
-	
+
 	t_tipdown_core = RUP_GRD(tlead + tdel +
-		opte/2 + pw_gzrf1/2 + pw_gzrf1a -  
+		opte/2 + pw_gzrf1/2 + pw_gzrf1a -
 		pw_gz180crush1 - 2*pw_gz180crush1a -
 		pw_gzrf2/2 - pw_gzrf2a +
 		timessi);
-		
-	
+
+
 	t_readout_core = RUP_GRD(tlead +tdel+
 		pw_gz180crush1 + 2*pw_gz180crush1a +
 		pw_gzrf2 + 2*pw_gzrf2a +
 		pw_gz180crush2 + 2*pw_gz180crush2a +
 		pw_gzphase1 + 2*pw_gzphase1a +
-		pw_gx + 
+		pw_gx +
 		pw_gzphase2+ 2*pw_gzphase2a +
-		timessi + 1000 
+		timessi + 1000
 		+ pwgpre );
 
 	
 	seqtr = t_tipdown_core + t_readout_core * opslquant;
 
-	psdseqtime = seqtr + t_tag + t_delay + t_preBS;	
+	psdseqtime = seqtr + t_tag + t_delay + t_preBS;
 
 	fprintf(stderr, "\npsdseqtime, seqtr, tmin, optr=  %d   %d  %d  %d", psdseqtime,  seqtr,tmin,optr);
 	
@@ -1244,10 +1249,11 @@ pw_rf1/2 + opte + pw_gx + daqdel + mapdel + pw_gzspoil +
 
 	/* set up RF pulse  */
 
+	a_vsitag1 = (flip_rf2/180) * vsi_RFmax / my_maxB1Seq;
+	a_vsictl1 = (flip_rf2/180) * vsi_RFmax / my_maxB1Seq;
+
 	a_rf1 = opflip/180 ;
 	a_rf2 = flip_rf2/180 ;
-	a_vsitag1 = vsi_RFmax / my_maxB1Seq;
-	a_vsictl1 = vsi_RFmax / my_maxB1Seq;
 
 	ia_rf1 = a_rf1 * max_pg_iamp;
 	ia_rf2 = a_rf2 * max_pg_iamp;
@@ -1301,7 +1307,7 @@ pw_rf1/2 + opte + pw_gx + daqdel + mapdel + pw_gzspoil +
 
 
 	/*-------------------------------------------------*/
-	minte = pw_gzrf1/2 + 2*pw_gzrf1d; 
+	minte = pw_gzrf1/2 + 2*pw_gzrf1d;
 	minte += pw_gzrf1r+2*pw_gzrf1ra;
 	minte += (2*pw_gz180crush1a + pw_gz180crush1)*2;
 	minte += pw_gzrf2 + 2*pw_gzrf2d;
@@ -1617,8 +1623,8 @@ STATUS pulsegen(void)
 	/*waitloc = pend(&gzrf1d,"gzrf1d",0);   /* the end slice select gradient */
 	/*readpos = RUP_GRD(pmid(&rf1,"rf1",0) + opte); /* echo time in GRE option */
 	/* LHG 18.10.26 : spin echo */
-	/* 18.12.07:  begin readout immediately */ 
-	readpos = RUP_GRD(pend(&gzphase1d,"gzphase1d",0) + 4us ); 
+	/* 18.12.07:  begin readout immediately */
+	readpos = RUP_GRD(pend(&gzphase1d,"gzphase1d",0) + 4us );
 	daqpos = readpos;
 
 
@@ -1835,18 +1841,18 @@ STATUS pulsegen(void)
 			vsi_RFmax / my_maxB1Seq,
 			vsi_train_len,
 			vsi_train_len*4,
-			vsi_pulse_mag,  
+			vsi_pulse_mag,
 			1,
 			loggrd);
 
-	
+
         INTWAVE(THETA,
                         vsitag1_theta,
                         RUP_GRD(psd_rf_wait) ,
                         1.0,
                         vsi_train_len,
 			vsi_train_len*4,
-                        vsi_pulse_phs, 
+                        vsi_pulse_phs,
                         1,
                         loggrd);
 
@@ -1874,7 +1880,7 @@ STATUS pulsegen(void)
 
 	SEQLENGTH(astcore, astseqtime + textra_astcore  ,astcore);
 	getperiod(&deadtime_astcore, &astcore, 0);
-	
+
 
 	/* VSAI control pulse core */
 
@@ -1895,7 +1901,7 @@ STATUS pulsegen(void)
                         1.0,
                         vsi_train_len,
 			vsi_train_len*4,
-                        vsi_pulse_ctl_phs, 
+                        vsi_pulse_ctl_phs,
                         1,
                         loggrd);
 
@@ -1960,7 +1966,7 @@ STATUS pulsegen(void)
 			/* /usr/g/bin/myhsec1t.theta,,loggrd);*/
 		sech_7360.theta,,loggrd);
 
-	fprintf(stderr," start: %d	end: %d", 
+	fprintf(stderr," start: %d	end: %d",
 			RUP_RF(BS1_time - pw_BS1rf/2 + psd_rf_wait),
 			RUP_RF(BS1_time - pw_BS1rf/2 + pw_BS1rf  + psd_rf_wait ));
 	/*
@@ -2001,33 +2007,33 @@ STATUS pulsegen(void)
 	/* Arterial saturation pulses (preloaded BIR-8 pulses from a file) */
 	INTWAVE(RHO,
 			ASrf_mag,
-			RUP_GRD(t_delay - fatsattime - BIR_len*4 - AStime + psd_rf_wait ), 
-			(float)doArtSup ,  
+			RUP_GRD(t_delay - fatsattime - BIR_len*4 - AStime + psd_rf_wait ),
+			(float)doArtSup ,
 			BIR_len,
 			BIR_len*4,
-			BIR_mag ,  
+			BIR_mag ,
 			1,
 			loggrd);
 
-	
+
         INTWAVE(THETA,
                         ASrf_theta,
 			RUP_GRD(t_delay - fatsattime - BIR_len*4 - AStime +psd_rf_wait ), 
-			(float)doArtSup,   
+			(float)doArtSup,
 			BIR_len,
 			BIR_len*4,
-			BIR_phs ,  
+			BIR_phs ,
                         1,
                         loggrd);
 
-	
+
         INTWAVE(ZGRAD,
                         ASrf_grad,
-			RUP_GRD(t_delay - fatsattime - BIR_len*4 - AStime  ), 
-			(float)doArtSup * BIR_Gmax ,  
+			RUP_GRD(t_delay - fatsattime - BIR_len*4 - AStime  ),
+			(float)doArtSup * BIR_Gmax ,
 			BIR_len,
 			BIR_len*4,
-			BIR_grad ,  
+			BIR_grad ,
                         1,
                         loggrd);
 
@@ -2536,8 +2542,8 @@ STATUS scancore()
 	if (multiFlipFlag) 
 	{
 		vsi_RFmax = 0;
-		a_vsitag1 = vsi_RFmax / my_maxB1Seq;
-		a_vsictl1 = vsi_RFmax / my_maxB1Seq;
+		a_vsitag1 = (flip_rf2/180) * vsi_RFmax / my_maxB1Seq;
+		a_vsictl1 = (flip_rf2/180) * vsi_RFmax / my_maxB1Seq;
 		ia_vsitag1 = a_vsitag1 * max_pg_iamp;
 		ia_vsictl1 = a_vsictl1 * max_pg_iamp;
 
@@ -2583,8 +2589,8 @@ STATUS scancore()
 			if (ifr > M0frames)
 			{
 				vsi_RFmax += vsi_RFmax_calstep;		
-				a_vsitag1 = vsi_RFmax / my_maxB1Seq;
-				a_vsictl1 = vsi_RFmax / my_maxB1Seq;
+				a_vsitag1 = (flip_rf2/180) * vsi_RFmax / my_maxB1Seq;
+				a_vsictl1 = (flip_rf2/180) * vsi_RFmax / my_maxB1Seq;
 				ia_vsitag1 = a_vsitag1 * max_pg_iamp;
 				ia_vsictl1 = a_vsictl1 * max_pg_iamp;
 			}
@@ -2775,12 +2781,13 @@ void doast(int* trig, int isLabel)
 		setrotate(rotmatx,0);
 		/*-----------------------------------------------------------*/
 
-
-		fprintf(stderr," calling vsi_gapcore  ...");
-		boffset(off_vsi_gapcore);
-		startseq(0, MAY_PAUSE);
-		settrigger(TRIG_INTERN,0);
-
+		/* JG 9.5/2019 Remove the gapcore for the first VSI pulse */ 
+		if (m > 0) {           
+			fprintf(stderr," calling vsi_gapcore  ...");
+			boffset(off_vsi_gapcore);
+			startseq(0, MAY_PAUSE);
+			settrigger(TRIG_INTERN,0);
+		}
 		/*LHG 10.30.18 : adding respiratory gating option */
 		if (oprtcgate==1) settrigger( vsi_TrigType,  0);
 
