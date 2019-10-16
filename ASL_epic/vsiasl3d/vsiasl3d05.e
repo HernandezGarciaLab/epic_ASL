@@ -390,7 +390,7 @@ int	vsi_timegap = 1150000;   /* gap between VSI pulses if we are doing mulitple 
 
 /* arterial suppression by BIR pulses */
 double 	BIR_Gmax = 1.0; /* default gradient max aplitude in VSI pulse train */
-int	BIR_len = 9000;  /* number of points in the iArterial suppression BIR8 pulse. */ 
+int	BIR_len = 6850;  /* number of points in the iArterial suppression BIR8 pulse. */ 
 
 int  	multiFlipFlag = 0;  /* LHG 10.9.14 - Flag for VSI flip angle optimization  */  
 int  	multiphsFlag = 0;  /* LHG 10.3.12 - Flag for phase correction optimization mode */  
@@ -423,7 +423,13 @@ float   rf1_bw;
 float   slab_fraction=0.95 with {0,10, , VIS, "fraction of the nominal z FOV with 90 degree pulse"};
 
 float	se_slab_fraction = 0.95 with {0,10, , VIS, "fraction of the nominal z FOV excited by 180 degree pulse"};
-				/*  the 90 can be rotated and used to limit the FOV */
+
+int 	time_90_180 = 0;
+int	time_180_180 = 0;				
+int	textra90 = 0;
+int	textra180 = 0;
+
+/*  the 90 can be rotated and used to limit the FOV */
 int	doRotated90 = 0 with {0, 3, , VIS, "Forces the 90 degree pulse to the : 1=X axis, 2=Y axis, 3=Z axis "};
 float 	yfov = 10.0;	/* LHG 12.22.18: this sequence allows rotation of the 90 degree pulse independently of the 180.  i
 			yfov determines the slab width of the 90 (cm) */
@@ -431,8 +437,8 @@ float	delta_y = 0.0 with {-100, 100, , VIS, "if the 90 rf is rotated to the Y ax
 
 /* LHG 12/14/12 : Variables for the backgroun Suppression pulses */
 int	BStime = 0;    /* total time needed for background suppresson block */
-int	BS1_time = 300000; /* delay between label and second BS inversion pulses */
-int 	BS2_time = 800000;  /* delay between first and second BS inversion pulses */
+int	BS1_time = 800000; /* delay between label and second BS inversion pulses */
+int 	BS2_time = 200000;  /* delay between first and second BS inversion pulses */
 float	rfscalesech;	/* ratio of areas: autoprescan sinc to SECH pulse */
 int	doBS = 1;	/* background suppression pulses */
 int	doArtSup = 0;	/*arterial suppression pulses */
@@ -866,6 +872,12 @@ int cveval()
 	pixresval4 = 128;
 	piyresnub = 0;
 	
+	/* values for Arterial suppression pulses LHG 10.15.19 */
+	if (doArtSup)
+	{
+		 a_ASrf_mag  = (160/my_maxB1Seq);
+		 a_ASrf_grad  = 1.5;
+	}
 
 	/* Duration of whole labeling period : */
 	/* LHG 11.7.14:   now includes a gap between five VSI bursts */
@@ -876,6 +888,8 @@ int cveval()
 	/* t_tag = vsi_Ncycles*(vsi_timegap + astseqtime ); */
 	t_tag = vsi_Ncycles*(vsi_timegap + astseqtime ) - vsi_timegap;
 
+	/*08/14/19 JS activate rfpulse*/
+	rfpulse[0].activity = PSD_APS2_ON + PSD_MPS2_ON + PSD_SCAN_ON;
 	
 
 	/* ************************************************
@@ -965,7 +979,7 @@ int cveval()
 
 	fprintf(stderr, "predownload(): ampGzstep = %.3f, iampGzstep = %d \n", ampGzstep, iampGzstep);
 	/* ----------------------------------------------------------------------------------------*/
-	pw_gz0=4000;
+	pw_gz0=3000;
 	pw_gz0a=400;
 	pw_gz0d=400;
 	a_gz0 = 2.0;
@@ -1063,24 +1077,39 @@ int cveval()
 
 	astseqtime2 = t_tag + t_delay;  /*duration of tagging + postabeling delay */
 
+	
+	/* make sure time between 90 and 180 is half of the time between 180s*/
+	time_90_180 = RUP_GRD(pw_gzrf1/2 + pw_gzrf1a + pw_gzrf1r + 2*pw_gzrf1ra + 
+		pw_gz180crush1 + 2*pw_gz180crush1a + pw_gzrf2/2 + pw_gzrf2a + 100);
+
+	time_180_180 = RUP_GRD(pw_gz180crush1 + 2*pw_gz180crush1a + pw_gz180crush2 + 
+		2*pw_gz180crush2a + pw_gzrf2 + 2*pw_gzrf2a + pw_gzphase1 + 2*pw_gzphase1a +
+		pw_gx + pwgpre + pw_gzphase2+ 2*pw_gzphase2a + 1000);
+
+	if (2*time_90_180 < time_180_180) {
+		textra90 = (time_180_180 -2*time_90_180)/2;
+		textra180 = 0;
+	}
+	else {
+		textra90 = 0;
+		textra180 = 2*time_90_180 -time_180_180;
+	}
+
 	t_tipdown_core = RUP_GRD(tlead + tdel +
-		opte/2 + pw_gzrf1/2 + pw_gzrf1a -
-		pw_gz180crush1 - 2*pw_gz180crush1a -
-		pw_gzrf2/2 - pw_gzrf2a +
-		timessi);
-
-
+		pw_gzrf1 + 2*pw_gzrf1a +
+		pw_gzrf1r + 2*pw_gzrf1ra + 
+		timessi + 100 + textra90);
+	
 	t_readout_core = RUP_GRD(tlead +tdel+
 		pw_gz180crush1 + 2*pw_gz180crush1a +
 		pw_gzrf2 + 2*pw_gzrf2a +
 		pw_gz180crush2 + 2*pw_gz180crush2a +
 		pw_gzphase1 + 2*pw_gzphase1a +
-		pw_gx +
+		pw_gx + 
 		pw_gzphase2+ 2*pw_gzphase2a +
-		timessi + 1000
-		+ pwgpre );
+		pwgpre + 1000 + textra180 +
+		timessi);
 
-	
 	seqtr = t_tipdown_core + t_readout_core * opslquant;
 
 	psdseqtime = seqtr + t_tag + t_delay + t_preBS;
