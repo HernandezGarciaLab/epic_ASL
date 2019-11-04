@@ -41,6 +41,7 @@ int genspiral(float D, int N, float Tmax, float dts)
   float q;
   int nint;
   float areax, areay, area;
+  FILE * fp;
 #define LIMIT(x, xmin, xmax)   ( (x<xmax)? ((x>xmin)? x:xmin):xmax )
 
 
@@ -106,12 +107,13 @@ int genspiral(float D, int N, float Tmax, float dts)
   }
 
 /*  decimate by 2 to get back to 4us sampling */
-
+  fp = fopen("/usr/g/bin/luis/grads.txt","w");
   n = 0;
   areax = areay = 0;
   for (j=0; j<i; j+=2)  {
     gx[n] = LIMIT(gx[j], -gamp, gamp);
     gy[n] = LIMIT(gy[j], -gamp, gamp);
+    fprintf(fp,"\n%f\t%f",gx[n], gy[n]);
     areax += gx[n];
     areay += gy[n++];
   }
@@ -124,9 +126,11 @@ int genspiral(float D, int N, float Tmax, float dts)
     c = 1 - j/(float)nramp;
     gx[n] = bx*c;
     gy[n] = by*c;
+    fprintf(fp,"\n%f\t%f",gx[n], gy[n]);
     areax += gx[n];
     areay += gy[n++];
   }
+  fclose(fp);
 
 /*  final scaling and fill output buffer  */
  
@@ -137,6 +141,14 @@ int genspiral(float D, int N, float Tmax, float dts)
         Gy[j] = 2*((int)(.5*gy[j]*MAX_PG_WAMP/gamp));
       }
       gres = n;
+      areax *= 4;  	/* *dt  */
+      areay *= 4;
+      area = MAX(fabs(areax), fabs(areay));
+      /*pwgpre = RUP_GRD((int)(area*.5*M_PI/gamp));*/
+      /*if(pwgpre<1000) pwgpre = 1000;	/* 1 ms min */
+      pwgpre = 1000;
+      agxpre = .5*M_PI*areax/pwgpre;
+      agypre = .5*M_PI*areay/pwgpre;
       break;
     case 1:  	/* spiral in */
     case 2:  	/* spiral in-out */
@@ -156,6 +168,11 @@ int genspiral(float D, int N, float Tmax, float dts)
   }
 
   printf("Tslew, Ttot (ms), tot points =  %f  %f  %d\n", ts*1000, T*1000, gres);
+
+  fp = fopen("/usr/g/bin/luis/areas.txt","w");
+  fprintf(fp,"\nareax = %f   areay = %f", areax, areay);
+  fprintf(fp,"\nagxpre = %f   agypre=%f", agxpre, agypre);
+  fclose(fp);
 
   return SUCCESS;
 
