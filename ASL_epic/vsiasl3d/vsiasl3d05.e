@@ -310,7 +310,7 @@ int bmapnav = 1 with {0,1,1,VIS, "1=do nav cor for bmap",};
 int off_fov = 1 with {0,1,1,VIS, "1 for rcvr offset fov, 0 for fftshift",};
 
 float tsp = 4.0us with {1.0,12.75,,, "A/D sampling interval",};
-float bandwidth = 125.0 with {2.0,250.0,1,VIS, "CERD rec low pass freq, kHz",};
+float bandwidth = 85.0 with {2.0,250.0,1,VIS, "CERD rec low pass freq, kHz",};
 float decimation = 1.0;
 
 int filter_aps2 = 1;
@@ -357,8 +357,8 @@ int	vsi_rotax = 0 ; /* if multiple pulses, rotate the vsi_axis or leave it fixed
 int	vsi_rfdelay = 50; /* allow a little time between RF and gradient */
 float 	vsi_flip ;  /* flip angle of each Hanning pulse */
 int  	myramptime = 120; /* 120; *** lhg 9/21/12   ramp times for the pcasl pulses */
-double 	vsi_Gmax = 2.0; /* default gradient max aplitude in VSI pulse train */
-double 	vsi_Gcontrol = 2.0 ; /* default gradient max aplitude in control pulse train */
+double 	vsi_Gmax = 3.0; /* default gradient max aplitude in VSI pulse train */
+double 	vsi_Gcontrol = 3.0 ; /* default gradient max aplitude in control pulse train */
 double	vel_target ; /* the decceleration rate the we wish to use for labeleing *
 		/* calibration of the flip angles is done by starting at max and reducing the RF */
 int	vsi_Ncycles = 1;  /* number of VSI pulse bursts */
@@ -366,7 +366,7 @@ int 	M0frames = 2;  /* number of images withoug labeling (at the begining) */
 int	isOdd = 0;
 
 /* stuff for peak B1 calculations */
-double	vsi_RFmax = 120 ; /* mGauss. Peak B1 of the pulse train 
+double	vsi_RFmax = 234 ; /* mGauss. Peak B1 of the pulse train 
 				for a 180 deg, 1 ms  hard pulse 
 				B1max should be 117 mG*/ 
 double vsi_RFmax_calstep = 10;
